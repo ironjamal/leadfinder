@@ -1,0 +1,58 @@
+import { NextRequest, NextResponse } from "next/server";
+import { searchBusinesses, GooglePlacesError } from "@/lib/googlePlaces";
+import { SearchRequestBody, SearchResponseBody, ApiErrorBody } from "@/lib/types";
+
+const VALID_COUNTS = [20, 50, 100];
+
+export async function POST(req: NextRequest) {
+  let body: Partial<SearchRequestBody>;
+
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json<ApiErrorBody>(
+      { error: "Invalid request body." },
+      { status: 400 }
+    );
+  }
+
+  const businessType = (body.businessType || "").trim();
+  const location = (body.location || "").trim();
+  const resultCount = body.resultCount;
+
+  if (!businessType || !location) {
+    return NextResponse.json<ApiErrorBody>(
+      { error: "Please enter both a business type and a location." },
+      { status: 400 }
+    );
+  }
+
+  if (!resultCount || !VALID_COUNTS.includes(resultCount)) {
+    return NextResponse.json<ApiErrorBody>(
+      { error: "Please choose a valid number of results (20, 50, or 100)." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const { results, warning } = await searchBusinesses(businessType, location, resultCount);
+
+    if (results.length === 0) {
+      return NextResponse.json<ApiErrorBody>(
+        { error: "No businesses were found for that search. Try a different business type or location." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json<SearchResponseBody>({ results, requestedCount: resultCount, warning });
+  } catch (err) {
+    if (err instanceof GooglePlacesError) {
+      return NextResponse.json<ApiErrorBody>({ error: err.message }, { status: err.status });
+    }
+    console.error(err);
+    return NextResponse.json<ApiErrorBody>(
+      { error: "Something went wrong while searching. Please try again." },
+      { status: 500 }
+    );
+  }
+}
