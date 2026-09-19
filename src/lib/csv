@@ -1,0 +1,63 @@
+import { LEAD_STATUS_LABELS, SavedLead, WebsiteStatus } from "./types";
+
+const HEADERS = [
+  "Business Name",
+  "Category",
+  "Address",
+  "Phone",
+  "Rating",
+  "Reviews",
+  "Website Status",
+  "Website URL",
+  "Google Maps URL",
+  "Lead Status",
+  "Notes",
+];
+
+function statusLabel(status: WebsiteStatus): string {
+  if (status === "listed") return "Website Listed";
+  if (status === "none") return "No Website Listed";
+  return "Unknown";
+}
+
+function escapeCell(value: string | number | null | undefined): string {
+  const str = value === null || value === undefined ? "" : String(value);
+  if (/[",\n]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export function leadsToCsv(leads: SavedLead[]): string {
+  const rows = leads.map((lead) =>
+    [
+      lead.name,
+      lead.category,
+      lead.address,
+      lead.phone || "",
+      lead.rating ?? "",
+      lead.reviewCount ?? "",
+      statusLabel(lead.websiteStatus),
+      lead.website || "",
+      lead.googleMapsUrl,
+      LEAD_STATUS_LABELS[lead.leadStatus],
+      lead.notes || "",
+    ]
+      .map(escapeCell)
+      .join(",")
+  );
+
+  return [HEADERS.join(","), ...rows].join("\n");
+}
+
+export function downloadCsv(filename: string, csvContent: string) {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
